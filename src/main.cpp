@@ -171,7 +171,7 @@ void loop() {
     if (counter > 1 or ok == 1){
       GETtoMysql();
       delay(2000);
-      Serial.print(" I'm going to sleep!! 5 min");
+      Serial.print(" I'm going to sleep!! 10 min");
       ESP.deepSleep(600000000);
     }
  getWeather();
