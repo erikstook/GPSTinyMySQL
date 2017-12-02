@@ -172,7 +172,7 @@ void loop() {
       GETtoMysql();
       delay(2000);
       Serial.print(" I'm going to sleep!! 5 min");
-      ESP.deepSleep(300000000);
+      ESP.deepSleep(600000000);
     }
  getWeather();
  Serial.println("Temp:");
