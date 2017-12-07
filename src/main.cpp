@@ -22,10 +22,13 @@ Adafruit_BME280 bme; // I2C
 // Replace with your network details
 const char* ssid = "OMDUVISSTE";
 const char* password = "grodanboll";
-float h, t, p, pin, dp, a;
-float hmax, hmin = 100, pmax, pmin = 2000, tmax, tmin = 100;
+float h, t, p, pin, dp, a, l;
+float hmax, hmin = 100, pmax, pmin = 2000, tmax, tmin = 100, lmax, lmin = 5000;
 int counter = 0;
 int ok = 0;
+int lightPower = D6;
+int sensorPin = A0;
+int sensorValue = 0;
 /*char temperatureFString[6];
 char temperaturemaxString[6];
 char temperatureminString[6];
@@ -55,7 +58,11 @@ void GETtoMysql(){
         float humiditymax = hmax;
         float pressuremin = pmin;
         float pressuremax = pmax;
-        String url = "http://192.168.3.218/addweatherall.php?temp="+String(temp);
+        float light = l;
+        float lightmax = lmax;
+        float lightmin = lmin;
+
+        String url = "http://192.168.3.218/addweatherlight.php?temp="+String(temp);
         url = url + ":" + String(humidity);
         url = url + ":" + String(altitude);
         url = url + ":" + String(pressure);
@@ -65,7 +72,12 @@ void GETtoMysql(){
         url = url + ":" + String(humiditymax);
         url = url + ":" + String(pressuremin);
         url = url + ":" + String(pressuremax);
+        url = url + ":" + String(lightmax);
+        url = url + ":" + String(lightmin);
+        url = url + ":" + String(light);
+        Serial.print(" Till URL:");
         Serial.println(url);
+        Serial.print("---");
         http.begin(url);
 
         //GET method
@@ -92,6 +104,8 @@ void setup() {
   delay(10);
   Wire.begin(D3, D4);
   Wire.setClock(100000);
+  pinMode(lightPower,OUTPUT);
+
   // Connecting to WiFi network
   Serial.println();
   Serial.print("Connecting to ");
@@ -120,7 +134,19 @@ void setup() {
     while (1);
   }
 }
+void getLight(){
+  digitalWrite(lightPower,HIGH); // Turn on the power MH sensorPin
+  delay(500);
+  sensorValue = analogRead(sensorPin);
+  l = 1023 - sensorValue;
+  if (l > lmax) lmax = l;
+  if (l < lmin) lmin = l;
 
+  delay(200);
+  Serial.print("LightValue:");
+  Serial.println(sensorValue);
+
+}
 void getWeather() {
 
     a = bme.readAltitude(SEALEVELPRESSURE_HPA);
@@ -172,7 +198,7 @@ void loop() {
       GETtoMysql();
       delay(2000);
       Serial.print(" I'm going to sleep!! 10 min");
-      ESP.deepSleep(600000000);
+      ESP.deepSleep(600000000); //ESP.deepSleep(600000000);
     }
  getWeather();
  Serial.println("Temp:");
@@ -183,6 +209,6 @@ void loop() {
  Serial.println(a);
  Serial.println("Pressure:");
  Serial.println(p);
-
+ getLight();
 
 }
