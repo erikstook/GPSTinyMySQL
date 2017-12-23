@@ -9,6 +9,7 @@
 #include <Arduino.h>
 #include <WiFiConnector.h>
 #include <ESP8266WebServer.h>
+#include <time.h>
 //#include <ArduinoOTA.h>
 //#include <ESP8266mDNS.h>
 #include <Wire.h>
@@ -29,6 +30,10 @@ int ok = 0;
 int lightPower = D6;
 int sensorPin = A0;
 int sensorValue = 0;
+float timedatemtmax;
+int timezone = 1;
+int dst = 0;
+String timedatetmax;
 /*char temperatureFString[6];
 char temperaturemaxString[6];
 char temperatureminString[6];
@@ -44,7 +49,6 @@ char altitude[6];*/
 
 // Web Server on port 80
 WiFiServer server(80);
-
 void GETtoMysql(){
   HTTPClient http;
 
@@ -61,7 +65,6 @@ void GETtoMysql(){
         float light = l;
         float lightmax = lmax;
         float lightmin = lmin;
-
         String url = "http://192.168.3.218/addweatherlight.php?temp="+String(temp);
         url = url + ":" + String(humidity);
         url = url + ":" + String(altitude);
@@ -75,11 +78,39 @@ void GETtoMysql(){
         url = url + ":" + String(lightmax);
         url = url + ":" + String(lightmin);
         url = url + ":" + String(light);
+        timedatetmax.replace(" ","_");
+        timedatetmax.replace(":","-");
+        String maxT = timedatetmax.substring(0,24);
+
+        //String maxT = String("Sat_Dec_23_15_22_21_2017");
+        //url = url + ":" + char(39);
+        //url = url + ":" + String(timedatetmax);
+        url = url + ":" + String(maxT);
+        //url = url + char(39);
+        Serial.println(temp);
+        Serial.println(humidity);
+        Serial.println(altitude);
+        Serial.println(pressure);
+        Serial.println(tempmin);
+        Serial.println(tempmax);
+        Serial.println(humiditymin);
+        Serial.println(humiditymax);
+        Serial.println(pressuremin);
+        Serial.println(pressuremax);
+        Serial.println(lightmax);
+        Serial.println(lightmin);
+        Serial.println(light);
+        Serial.println(timedatetmax);
+        Serial.println(maxT);
+        Serial.println(timedatetmax.length());
+
+
+        //Serial.println(timedatetmax);
         Serial.print(" Till URL:");
         Serial.println(url);
         Serial.print("---");
         http.begin(url);
-
+        delay(200);
         //GET method
         int httpCode = http.GET();
         if(httpCode > 0)
@@ -120,6 +151,14 @@ void setup() {
   Serial.println("");
   Serial.println("WiFi connected");
 
+  configTime(timezone * 3600, dst * 0, "pool.ntp.org", "time.nist.gov");
+   Serial.println("\nWaiting for time");
+   while (!time(nullptr)) {
+     Serial.print(".");
+     delay(1000);
+   }
+
+
   // Starting the web server
   server.begin();
   Serial.println("Web server running. Waiting for the ESP IP...");
@@ -145,6 +184,8 @@ void getLight(){
   delay(200);
   Serial.print("LightValue:");
   Serial.println(sensorValue);
+  Serial.print("Tmax Date:");
+  Serial.println(timedatetmax);
 
 }
 void getWeather() {
@@ -157,7 +198,15 @@ void getWeather() {
     t = t*1.8+32.0;
     t = (t-32)/1.8000; // F to C
     dp = t-0.36*(100.0-h);
-    if (t > tmax) tmax = t; // Check Max Temp
+    if (t > tmax) {
+      tmax = t;// Check Max Temp
+      time_t now = time(nullptr);
+      Serial.println(now);
+      timedatetmax = String(ctime(&now));
+      delay(200);
+
+    }
+
     if (t < tmin) tmin = t; // Check the Min Temp
     p = bme.readPressure()/100.0F;
     if (p > pmax) pmax = p;
@@ -188,7 +237,9 @@ void loop() {
   //ReadValues();
 
     // closing the client connection
-
+    time_t now = time(nullptr);
+    Serial.println(ctime(&now));
+    String(timedate) = String(ctime(&now));
     client.stop();
     Serial.println("Client disconnected.");
     ++counter;
