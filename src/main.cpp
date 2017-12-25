@@ -30,10 +30,10 @@ int ok = 0;
 int lightPower = D6;
 int sensorPin = A0;
 int sensorValue = 0;
-float timedatemtmax;
 int timezone = 1;
 int dst = 0;
 String timedatetmax;
+String timedatetmin;
 /*char temperatureFString[6];
 char temperaturemaxString[6];
 char temperatureminString[6];
@@ -81,11 +81,16 @@ void GETtoMysql(){
         timedatetmax.replace(" ","_");
         timedatetmax.replace(":","-");
         String maxT = timedatetmax.substring(0,24);
+        timedatetmin.replace(" ","_");
+        timedatetmin.replace(":","-");
+        String minT = timedatetmin.substring(0,24);
+
 
         //String maxT = String("Sat_Dec_23_15_22_21_2017");
         //url = url + ":" + char(39);
         //url = url + ":" + String(timedatetmax);
         url = url + ":" + String(maxT);
+        url = url + ":" + String(minT);
         //url = url + char(39);
         Serial.println(temp);
         Serial.println(humidity);
@@ -102,7 +107,9 @@ void GETtoMysql(){
         Serial.println(light);
         Serial.println(timedatetmax);
         Serial.println(maxT);
-        Serial.println(timedatetmax.length());
+        Serial.println(timedatetmin.length());
+        Serial.println(timedatetmin);
+        Serial.println(minT);
 
 
         //Serial.println(timedatetmax);
@@ -186,6 +193,7 @@ void getLight(){
   Serial.println(sensorValue);
   Serial.print("Tmax Date:");
   Serial.println(timedatetmax);
+  Serial.println(timedatetmin);
 
 }
 void getWeather() {
@@ -207,7 +215,13 @@ void getWeather() {
 
     }
 
-    if (t < tmin) tmin = t; // Check the Min Temp
+    if (t < tmin){
+      tmin = t; // Check the Min Temp
+      time_t nowmin = time(nullptr);
+      Serial.println(nowmin);
+      timedatetmin = String(ctime(&nowmin));
+
+    }
     p = bme.readPressure()/100.0F;
     if (p > pmax) pmax = p;
     if (p < pmin) pmin = p;
@@ -237,9 +251,13 @@ void loop() {
   //ReadValues();
 
     // closing the client connection
-    time_t now = time(nullptr);
-    Serial.println(ctime(&now));
-    String(timedate) = String(ctime(&now));
+    //time_t now = time(nullptr);
+    //Serial.println(ctime(&now));
+    //String(timedate) = String(ctime(&now));
+    //time_t nowmin = time(nullptr);
+    //Serial.println(ctime(&nowmin));
+    //String(timedate) = String(ctime(&now));
+
     client.stop();
     Serial.println("Client disconnected.");
     ++counter;

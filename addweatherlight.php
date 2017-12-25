@@ -60,6 +60,11 @@ echo " Pos13:";
 echo $pos13;
 echo "\r\n";
 
+$pos14 = strpos($temp, ":", $pos13 + 1);
+echo " Pos14:";
+echo $pos14;
+echo "\r\n";
+
 echo "Temp:";
 $temperature = substr($temp, 0, $pos1);
 echo $temperature;
@@ -117,7 +122,7 @@ echo $light;
 echo "\r\n";
 
 echo "Temp max date:";
-$tmaxdate = substr($temp, $pos13 + 1, (strlen($temp) - $pos13) - 1);
+$tmaxdate = substr($temp, $pos13 + 1, ($pos14 - $pos13) - 1);
 echo $tmaxdate;
 $tmaxdate = str_replace("-",":",$tmaxdate);
 $tmaxdate = str_replace("_"," ",$tmaxdate);
@@ -127,6 +132,16 @@ $tmaxdate = chr(39) . $tmaxdate . chr(39);
 echo $tmaxdate;
 echo "\r\n";
 
+echo "Temp min date:";
+$tmindate = substr($temp, $pos14 + 1, (strlen($temp) - $pos14) - 1);
+echo $tmindate;
+$tmindate = str_replace("-",":",$tmindate);
+$tmindate = str_replace("_"," ",$tmindate);
+echo $tmindate;
+$tmindate = chr(39) . $tmindate . chr(39);
+//$tmaxdate = '"Fri Dec 22 20:21:37 2017"';
+echo $tmindate;
+echo "\r\n";
 
 $servername = "localhost";
 $username = "erik";
@@ -140,7 +155,7 @@ $val = $_GET['temp'];
 $val1 =  substr($temp, 6, 5);
 //$tmin = 90;
 //$tmax = 10;
-$sql = "INSERT INTO weatherlight(temp, humidity, altitude, pressure, tmin, tmax, hmin, hmax, pmin, pmax, lmin, lmax, light, tmaxdate) VALUES ($temperature, $humidity, $altitude, $pressure, $tmin, $tmax, $hmin, $hmax, $pmin, $pmax, $lmin, $lmax, $light, $tmaxdate);";
+$sql = "INSERT INTO weatherlight(temp, humidity, altitude, pressure, tmin, tmax, hmin, hmax, pmin, pmax, lmin, lmax, light, tmaxdate, tmindate) VALUES ($temperature, $humidity, $altitude, $pressure, $tmin, $tmax, $hmin, $hmax, $pmin, $pmax, $lmin, $lmax, $light, $tmaxdate, $tmindate);";
 if ($conn->query($sql) === TRUE) {
     echo "Weather Saved Successfully!";
 } else {
@@ -172,12 +187,16 @@ if ($result->num_rows > 0) {
 	$hmin = $row["hmin"];
 	$lmax = $row["lmax"];
 	$lmin = $row["lmin"];
-	if ($tmax > $tmax_x){ 
+	if ($tmax > $tmax_x){
 		$tmax_x = $tmax;
 		$tmaxdate = $row["tmaxdate"];
 		$tmaxdate = chr(39) . $tmaxdate . chr(39);
 	}
-	if ($tmin < $tmin_x) $tmin_x = $tmin;
+	if ($tmin < $tmin_x){
+		$tmin_x = $tmin;
+		$tmindate = $row["tmindate"];
+		$tmindate = chr(39) . $tmindate . chr(39);
+	}
 	if ($pmax > $pmax_x) $pmax_x = $pmax;
 	if ($pmin < $pmin_x) $pmin_x = $pmin;
 	if ($hmax > $hmax_x) $hmax_x = $hmax;
@@ -192,8 +211,8 @@ if ($result->num_rows > 0) {
 }
 echo " ID:";
 echo $counter; echo "\r\n";
-echo " TMAX:". $tmax_x. " TMIN:". $tmin_x. " PMAX:". $pmax_x. " PMIN:". $pmin_x. " HMAX:". $hmax_x. " HMIN:". $hmin_x. " LMIN:". $lmin_x. " LMAX:". $lmax_x.  " TMAXDATE:". $tmaxdate."\r\n";
-$sql = "UPDATE weatherlight SET tmin = $tmin_x, tmax = $tmax_x, pmin = $pmin_x, pmax = $pmax_x, hmin = $hmin_x, hmax = $hmax_x, lmax = $lmax_x, lmin = $lmin_x, tmaxdate = $tmaxdate WHERE id = $counter ;";
+echo " TMAX:". $tmax_x. " TMIN:". $tmin_x. " PMAX:". $pmax_x. " PMIN:". $pmin_x. " HMAX:". $hmax_x. " HMIN:". $hmin_x. " LMIN:". $lmin_x. " LMAX:". $lmax_x.  " TMAXDATE:". $tmaxdate.   " TMINDATE:". $tmindate."\r\n";
+$sql = "UPDATE weatherlight SET tmin = $tmin_x, tmax = $tmax_x, pmin = $pmin_x, pmax = $pmax_x, hmin = $hmin_x, hmax = $hmax_x, lmax = $lmax_x, lmin = $lmin_x, tmaxdate = $tmaxdate, tmindate = $tmindate WHERE id = $counter ;";
 	if ($conn->query($sql) === TRUE) {
 	    echo "Record updated successfully";
 	    echo "\r\n";
