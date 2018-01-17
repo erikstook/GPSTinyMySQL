@@ -1,4 +1,4 @@
 # WeatherStation
 
 My forst Weatherstation with NodeMCU
-All will be saved on MySQL
+All data will be saved on MySQL
