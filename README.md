@@ -1,4 +1,4 @@
-# WeatherStation
+# GPS coordinates saveed on MySQL
 
-My forst Weatherstation with NodeMCU
+GPS Tiny++ with NodeMCU
 All data will be saved on MySQL

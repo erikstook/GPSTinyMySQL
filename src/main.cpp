@@ -1,24 +1,21 @@
-/*********
-  Project: BME Weather Web server using NodeMCU
-  Implements Adafruit's sensor libraries.
-  Complete project is at: http://embedded-lab.com/blog/making-a-simple-weather-web-server-using-esp8266-and-bme280/
-
-  Modified code from Rui Santos' Temperature Weather Server posted on http://randomnerdtutorials.com
-*********/
+//*********GPS to save GPS to MySQL Server/
 
 #include <Arduino.h>
 #include <WiFiConnector.h>
 #include <ESP8266WebServer.h>
-//#include <ArduinoOTA.h>
-//#include <ESP8266mDNS.h>
+#include <SoftwareSerial.h>
+#include <TinyGPS++.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <ESP8266HTTPClient.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
-#define SEALEVELPRESSURE_HPA (1013.25)
-Adafruit_BME280 bme; // I2C
 
+static const int RXPin = 12, TXPin = 13;
+static const uint32_t GPSBaud = 9600;
+// The TinyGPS++ object
+TinyGPSPlus gps;
+// The serial connection to the GPS module
+SoftwareSerial ss(RXPin, TXPin);
 // Replace with your network details
 const char* ssid = "OMDUVISSTE";
 const char* password = "grodanboll";
@@ -26,19 +23,6 @@ float h, t, p, pin, dp, a;
 float hmax, hmin = 100, pmax, pmin = 2000, tmax, tmin = 100;
 int counter = 0;
 int ok = 0;
-/*char temperatureFString[6];
-char temperaturemaxString[6];
-char temperatureminString[6];
-char dpString[6];
-char humidityString[6];
-char humiditymaxString[6];
-char humidityminString[6];
-char pressureString[7];
-char pressuremaxString[7];
-char pressureminString[7];
-char pressureInchString[6];
-char altitude[6];*/
-
 // Web Server on port 80
 WiFiServer server(80);
 
@@ -55,7 +39,7 @@ void GETtoMysql(){
         float humiditymax = hmax;
         float pressuremin = pmin;
         float pressuremax = pmax;
-        String url = "http://192.168.3.218/addweatherall.php?temp="+String(temp);
+        String url = "http://192.168.3.218/addGPSall.php?temp="+String(temp);
         url = url + ":" + String(humidity);
         url = url + ":" + String(altitude);
         url = url + ":" + String(pressure);
@@ -89,8 +73,8 @@ void GETtoMysql(){
 void setup() {
   // Initializing serial port for debugging purposes
   Serial.begin(115200);
+  ss.begin(GPSBaud);
   delay(10);
-  Wire.begin(D3, D4);
   Wire.setClock(100000);
   // Connecting to WiFi network
   Serial.println();
@@ -115,43 +99,91 @@ void setup() {
   Serial.println(WiFi.localIP());
   Serial.println(F("BME280 test"));
 
-  if (!bme.begin(0x76)) {
-    Serial.println("Could not find a valid BME280 sensor, check wiring!");
-    while (1);
+}
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+static void smartDelay(unsigned long ms)
+{
+  unsigned long start = millis();
+  do
+  {
+    while (ss.available())
+      gps.encode(ss.read());
+  } while (millis() - start < ms);
+}
+
+static void printFloat(float val, bool valid, int len, int prec)
+{
+  if (!valid)
+  {
+    while (len-- > 1)
+      Serial.print('*');
+    Serial.print(' ');
   }
+  else
+  {
+    Serial.print(val, prec);
+    int vi = abs((int)val);
+    int flen = prec + (val < 0.0 ? 2 : 1); // . and -
+    flen += vi >= 1000 ? 4 : vi >= 100 ? 3 : vi >= 10 ? 2 : 1;
+    for (int i=flen; i<len; ++i)
+      Serial.print(' ');
+  }
+  smartDelay(0);
 }
 
-void getWeather() {
-
-    a = bme.readAltitude(SEALEVELPRESSURE_HPA);
-    h = bme.readHumidity();
-    if (h > hmax) hmax = h;
-    if (h < hmin) hmin = h;
-    t = bme.readTemperature();
-    t = t*1.8+32.0;
-    t = (t-32)/1.8000; // F to C
-    dp = t-0.36*(100.0-h);
-    if (t > tmax) tmax = t; // Check Max Temp
-    if (t < tmin) tmin = t; // Check the Min Temp
-    p = bme.readPressure()/100.0F;
-    if (p > pmax) pmax = p;
-    if (p < pmin) pmin = p;
-    pin = 0.02953*p;
-//    dtostrf(t, 5, 1, temperatureFString);
-  //  dtostrf(h, 5, 1, humidityString);
-//    dtostrf(hmax, 5, 1, humiditymaxString);
-  //  dtostrf(hmin, 5, 1, humidityminString);
-  //  dtostrf(p, 6, 1, pressureString);
-  //  dtostrf(pmax, 6, 1, pressuremaxString);
-  //  dtostrf(pmin, 6, 1, pressureminString);
-  //  dtostrf(pin, 5, 2, pressureInchString);
-  //  dtostrf(dp, 5, 1, dpString);
-  //  dtostrf(a, 6, 1, altitude);
-  //  dtostrf(tmin, 6, 1, temperatureminString);
-  //  dtostrf(tmax, 6, 1, temperaturemaxString);
-    delay(1000);
-
+static void printInt(unsigned long val, bool valid, int len)
+{
+  char sz[32] = "*****************";
+  if (valid)
+    sprintf(sz, "%ld", val);
+  sz[len] = 0;
+  for (int i=strlen(sz); i<len; ++i)
+    sz[i] = ' ';
+  if (len > 0)
+    sz[len-1] = ' ';
+  Serial.print(sz);
+  smartDelay(0);
 }
+
+static void printDateTime(TinyGPSDate &d, TinyGPSTime &t)
+{
+  if (!d.isValid())
+  {
+    Serial.print(F("********** "));
+  }
+  else
+  {
+    char sz[32];
+    sprintf(sz, "%02d/%02d/%02d ", d.month(), d.day(), d.year());
+    Serial.print(sz);
+  }
+
+  if (!t.isValid())
+  {
+    Serial.print(F("******** "));
+  }
+  else
+  {
+    char sz[32];
+    sprintf(sz, "%02d:%02d:%02d ", t.hour(), t.minute(), t.second());
+    Serial.print(sz);
+  }
+
+  printInt(d.age(), d.isValid(), 5);
+  smartDelay(0);
+}
+
+static void printStr(const char *str, int len)
+{
+  int slen = strlen(str);
+  for (int i=0; i<len; ++i)
+    Serial.print(i<slen ? str[i] : ' ');
+  smartDelay(0);
+}
+
+
+//XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 // runs over and over again
 
@@ -166,23 +198,56 @@ void loop() {
     client.stop();
     Serial.println("Client disconnected.");
     ++counter;
-      getWeather();
       Serial.println(ok);
     if (counter > 1 or ok == 1){
-      GETtoMysql();
+  //    GETtoMysql();
       delay(2000);
-      Serial.print(" I'm going to sleep!! 10 min");
-      ESP.deepSleep(600000000);
+  //    Serial.print(" I'm going to sleep!! 10 min");
+  //    ESP.deepSleep(600000000);
     }
- getWeather();
- Serial.println("Temp:");
- Serial.println(t);
- Serial.println("Humidity:");
- Serial.println(h);
- Serial.println("Altitude:");
- Serial.println(a);
- Serial.println("Pressure:");
- Serial.println(p);
+    static const double LONDON_LAT = 58.41086, LONDON_LON = 15.62157;
+
+    printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
+    printInt(gps.hdop.value(), gps.hdop.isValid(), 5);
+    printFloat(gps.location.lat(), gps.location.isValid(), 11, 6);
+    printFloat(gps.location.lng(), gps.location.isValid(), 12, 6);
+    printInt(gps.location.age(), gps.location.isValid(), 5);
+    printDateTime(gps.date, gps.time);
+    printFloat(gps.altitude.meters(), gps.altitude.isValid(), 7, 2);
+    printFloat(gps.course.deg(), gps.course.isValid(), 7, 2);
+    printFloat(gps.speed.kmph(), gps.speed.isValid(), 6, 2);
+    printStr(gps.course.isValid() ? TinyGPSPlus::cardinal(gps.course.deg()) : "*** ", 6);
+
+    unsigned long distanceKmToLondon =
+      (unsigned long)TinyGPSPlus::distanceBetween(
+        gps.location.lat(),
+        gps.location.lng(),
+        LONDON_LAT,
+        LONDON_LON) / 1000;
+    printInt(distanceKmToLondon, gps.location.isValid(), 9);
+
+    double courseToLondon =
+      TinyGPSPlus::courseTo(
+        gps.location.lat(),
+        gps.location.lng(),
+        LONDON_LAT,
+        LONDON_LON);
+
+    printFloat(courseToLondon, gps.location.isValid(), 7, 2);
+
+    const char *cardinalToLondon = TinyGPSPlus::cardinal(courseToLondon);
+
+    printStr(gps.location.isValid() ? cardinalToLondon : "*** ", 6);
+
+    printInt(gps.charsProcessed(), true, 6);
+    printInt(gps.sentencesWithFix(), true, 10);
+    printInt(gps.failedChecksum(), true, 9);
+    Serial.println();
+
+    smartDelay(1000);
+
+    if (millis() > 5000 && gps.charsProcessed() < 10)
+      Serial.println(F("No GPS data received: check wiring"));
 
 
 }
